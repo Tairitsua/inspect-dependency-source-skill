@@ -6,7 +6,7 @@
 
 Coding agents are often accurate inside your repository and surprisingly uncertain at a dependency boundary. They may inspect the latest upstream branch instead of the version you use, repeat the same large download in several workspaces, lose the link between a package and its source commit, or rely on documentation that cannot explain implementation behavior.
 
-Inspect Dependency Source adds a user-level source catalog shared by every project and coding agent on the same machine. It resolves dependencies to reusable local source trees, records how each version was selected, fails closed when an exact ref is unavailable, and provides a polished localhost dashboard for people who want to see what is cached and whether it is trustworthy.
+Inspect Dependency Source is a user-level Agent Skill with a source catalog shared by every project and coding agent on the same machine. It resolves dependencies to reusable local source trees, records how each version was selected, fails closed when an exact ref is unavailable, and provides a polished localhost dashboard for people who want to see what is cached and whether it is trustworthy.
 
 The result is not a smarter model. It is a more reliable source-analysis workflow with better evidence.
 
@@ -56,7 +56,7 @@ Install the skill once per OS user, not inside a project. The example keeps the 
 
 ```bash
 mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
-git clone https://github.com/Tairitsua/inspect-dependency-source.git \
+git clone https://github.com/Tairitsua/inspect-dependency-source-skill.git \
   "$HOME/.agents/skills/inspect-dependency-source"
 ln -s "$HOME/.agents/skills/inspect-dependency-source" \
   "$HOME/.claude/skills/inspect-dependency-source"
@@ -187,12 +187,6 @@ See [architecture and safety](references/architecture.md) for the storage model,
 - The dashboard never exposes arbitrary source files, environment variables, secrets, or mutation endpoints.
 
 Localhost-only does not mean share-safe. Review repository names, local paths, package versions, and operation history before publishing logs or sharing the dashboard screen.
-
-## Migration and compatibility
-
-This is a breaking redesign of `third-party-source-catalog`. It intentionally does not support the old `source_catalog.py` commands, project-local JSON catalog, or legacy cache layout.
-
-The new user-level catalog starts empty. Keep an old cache untouched, then explicitly register any source you still need with `repo add-local`. Nothing is imported, moved, or deleted automatically.
 
 ## Development
 

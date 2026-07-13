@@ -4,7 +4,7 @@
 
 编码 Agent 往往很擅长理解当前仓库，但一旦跨过第三方依赖边界，可靠性就会明显下降：它可能查看上游最新分支而不是项目实际使用的版本；在多个工作区反复下载同一份大型源码；丢失包版本与源码提交之间的关联；或者只依赖无法解释实现细节的文档。
 
-Inspect Dependency Source 提供一个属于当前用户、由同一台机器上所有项目和编码 Agent 共享的源码目录。它将依赖解析到可复用的本地源码树，记录每个版本的选择依据，在准确 ref 不存在时明确失败，并提供美观的 localhost 仪表盘，让用户查看已经缓存的内容及其可信程度。
+Inspect Dependency Source 是一个用户级 Agent Skill，内置由同一台机器上所有项目和编码 Agent 共享的源码目录。它将依赖解析到可复用的本地源码树，记录每个版本的选择依据，在准确 ref 不存在时明确失败，并提供美观的 localhost 仪表盘，让用户查看已经缓存的内容及其可信程度。
 
 它不会让模型本身变得更聪明，而是通过更可靠、证据更充分的源码分析流程提升结果质量。
 
@@ -56,7 +56,7 @@ Inspect Dependency Source 解决的是相关但不同的上下文问题：它在
 
 ```bash
 mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
-git clone https://github.com/Tairitsua/inspect-dependency-source.git \
+git clone https://github.com/Tairitsua/inspect-dependency-source-skill.git \
   "$HOME/.agents/skills/inspect-dependency-source"
 ln -s "$HOME/.agents/skills/inspect-dependency-source" \
   "$HOME/.claude/skills/inspect-dependency-source"
@@ -186,12 +186,6 @@ python3 scripts/inspect_dependency_source.py config set-root /absolute/path/to/c
 - 仪表盘不暴露任意源码文件、环境变量、机密或写操作端点。
 
 仅限 localhost 并不代表可以安全公开。分享日志或仪表盘画面前，请检查仓库名、本地路径、包版本和操作历史。
-
-## 迁移与兼容性
-
-这是对 `third-party-source-catalog` 的破坏式重新设计。它有意不兼容旧 `source_catalog.py` 命令、项目级 JSON 目录和旧缓存布局。
-
-新的用户级目录从空状态开始。请保留旧缓存不动，再通过 `repo add-local` 显式注册仍需要的源码。本工具不会自动导入、移动或删除任何旧数据。
 
 ## 开发
 
