@@ -10,6 +10,10 @@ Inspect Dependency Source adds a user-level source catalog shared by every proje
 
 The result is not a smarter model. It is a more reliable source-analysis workflow with better evidence.
 
+![Inspect Dependency Source dashboard showing catalog health, verified source inventory, and repository provenance](docs/images/dashboard-overview.png)
+
+*A read-only, localhost dashboard keeps source inventory, exact-version evidence, and operation health visible without exposing mutation controls.*
+
 ## What it solves
 
 - **Exact-version debugging:** bind a package or requested ref to a tag or commit instead of silently substituting the default branch.
@@ -208,7 +212,7 @@ python3 tests/browser_validation.py
 
 Browser tests should cover bilingual persistence, repository switching, incremental operation timelines, responsive layouts, system themes, accessibility, security headers, and console/network errors.
 
-Before publishing, confirm that the repository contains only the baseline import and breaking redesign commits, that the working tree is clean, and that installed Codex and Claude copies pass the same Skill validation.
+Before publishing, confirm that the full test suite and Skill validation pass, the working tree is clean, and installed Codex and Claude copies pass the same Skill validation.
 
 ## License
 

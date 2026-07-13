@@ -8,6 +8,10 @@ Inspect Dependency Source 提供一个属于当前用户、由同一台机器上
 
 它不会让模型本身变得更聪明，而是通过更可靠、证据更充分的源码分析流程提升结果质量。
 
+![Inspect Dependency Source 仪表盘，展示目录健康状态、已验证源码清单和仓库来源依据](docs/images/dashboard-overview.png)
+
+*只读的 localhost 仪表盘让源码清单、准确版本依据和操作健康状态始终可见，且不暴露任何变更控件。*
+
 [English README](README.md)
 
 ## 解决的问题
@@ -207,7 +211,7 @@ python3 tests/browser_validation.py
 
 浏览器测试应覆盖：双语状态持久化、仓库切换、增量操作时间线、响应式布局、系统主题、可访问性、安全响应头，以及控制台和网络错误。
 
-发布前请确认：仓库仅包含基线导入和破坏式重设计两个 commit；工作树干净；安装到 Codex 与 Claude 的副本都通过同一套 Skill 验证。
+发布前请确认：完整测试套件和 Skill 验证已通过；工作树干净；安装到 Codex 与 Claude 的副本都通过同一套 Skill 验证。
 
 ## 许可证
 
