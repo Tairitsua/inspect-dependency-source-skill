@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Local source catalog health and repository inventory.">
+  <title>Inspect Dependency Source</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content" data-i18n="skip">Skip to content</a>
+  <header class="app-header">
+    <div class="brand-lockup">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" role="img">
+          <path d="M7 6.5h18v5H7zM7 13.5h18v5H7zM7 20.5h18v5H7z"></path>
+          <circle cx="11" cy="9" r="1.5"></circle>
+          <circle cx="21" cy="16" r="1.5"></circle>
+          <circle cx="14" cy="23" r="1.5"></circle>
+        </svg>
+      </div>
+      <div>
+        <p class="eyebrow" data-i18n="eyebrow">Local source intelligence</p>
+        <h1>Inspect Dependency Source</h1>
+      </div>
+    </div>
+    <div class="header-controls" aria-label="Display preferences" data-i18n-aria="preferences">
+      <label class="compact-field">
+        <span class="sr-only" data-i18n="language">Language</span>
+        <select id="language-select" aria-label="Language" data-i18n-aria="language">
+          <option value="en">English</option>
+          <option value="zh-CN">简体中文</option>
+        </select>
+      </label>
+      <label class="compact-field">
+        <span class="sr-only" data-i18n="theme">Theme</span>
+        <select id="theme-select" aria-label="Theme" data-i18n-aria="theme">
+          <option value="system" data-i18n="themeSystem">System</option>
+          <option value="light" data-i18n="themeLight">Light</option>
+          <option value="dark" data-i18n="themeDark">Dark</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <main id="main-content" tabindex="-1">
+    <section class="hero" aria-labelledby="overview-heading">
+      <div>
+        <p class="hero-kicker" data-i18n="heroKicker">Global catalog</p>
+        <h2 id="overview-heading" data-i18n="heroTitle">Know exactly which source your agents inspect.</h2>
+        <p class="hero-copy" data-i18n="heroCopy">Verified refs, reusable source trees, and operation health—all local to this machine.</p>
+      </div>
+      <div class="sync-state" id="sync-state" role="status" aria-live="polite">
+        <span class="pulse" aria-hidden="true"></span>
+        <span data-i18n="connecting">Connecting…</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="health-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker" data-i18n="healthKicker">At a glance</p>
+          <h2 id="health-heading" data-i18n="healthTitle">Catalog health</h2>
+        </div>
+        <p class="reconciled" id="reconciled-at"></p>
+      </div>
+      <div class="metric-grid" id="metric-grid" aria-live="polite"></div>
+      <div class="notice" id="summary-notice" hidden></div>
+    </section>
+
+    <section class="workspace" aria-labelledby="inventory-heading">
+      <aside class="inventory-panel">
+        <div class="section-heading inventory-heading">
+          <div>
+            <p class="section-kicker" data-i18n="inventoryKicker">Source inventory</p>
+            <h2 id="inventory-heading" data-i18n="inventoryTitle">Repositories</h2>
+          </div>
+          <span class="count-badge" id="repository-count" aria-label="Repository count">0</span>
+        </div>
+        <div class="inventory-tools">
+          <label class="search-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"></path></svg>
+            <span class="sr-only" data-i18n="search">Search repositories</span>
+            <input id="repository-search" type="search" autocomplete="off" placeholder="Search name, alias, package…" data-i18n-placeholder="searchPlaceholder">
+          </label>
+          <label class="filter-field">
+            <span class="sr-only" data-i18n="filter">Filter repositories</span>
+            <select id="repository-filter" aria-label="Filter repositories" data-i18n-aria="filter">
+              <option value="all" data-i18n="filterAll">All sources</option>
+              <option value="verified" data-i18n="filterVerified">Verified exact</option>
+              <option value="warning" data-i18n="filterWarning">Needs attention</option>
+              <option value="local" data-i18n="filterLocal">Local sources</option>
+            </select>
+          </label>
+        </div>
+        <nav aria-label="Repository inventory" data-i18n-aria="inventoryNav">
+          <ul class="repository-list" id="repository-list"></ul>
+        </nav>
+        <div class="empty-state" id="repository-empty" hidden>
+          <div class="empty-icon" aria-hidden="true">⌕</div>
+          <h3 data-i18n="noRepositories">No repositories found</h3>
+          <p data-i18n="noRepositoriesHelp">Adjust the filter or add a source with the CLI.</p>
+        </div>
+      </aside>
+
+      <article class="detail-panel" id="repository-detail" aria-live="polite" aria-labelledby="detail-heading">
+        <div class="detail-placeholder">
+          <div class="placeholder-orbit" aria-hidden="true"><span></span></div>
+          <p class="section-kicker" data-i18n="detailKicker">Repository details</p>
+          <h2 id="detail-heading" data-i18n="selectRepository">Select a repository</h2>
+          <p data-i18n="selectRepositoryHelp">Inspect provenance, cached artifacts, tags, manifests, and source paths.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="operations-section" aria-labelledby="operations-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker" data-i18n="operationsKicker">Activity</p>
+          <h2 id="operations-heading" data-i18n="operationsTitle">Operations</h2>
+        </div>
+        <span class="count-badge" id="operation-count" aria-label="Operation count">0</span>
+      </div>
+      <div class="operation-list" id="operation-list"></div>
+      <div class="empty-state compact" id="operation-empty" hidden>
+        <div class="empty-icon" aria-hidden="true">✓</div>
+        <h3 data-i18n="noOperations">No operations yet</h3>
+        <p data-i18n="noOperationsHelp">Fetch and verification activity will appear here.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><span data-i18n="footer">Private by default · localhost only · read-only</span></p>
+    <p class="api-version">API v1</p>
+  </footer>
+
+  <div class="toast" id="error-toast" role="alert" hidden>
+    <strong data-i18n="connectionError">Dashboard unavailable</strong>
+    <span id="error-message" data-i18n="connectionErrorHelp">The next refresh will retry automatically.</span>
+  </div>
+</body>
+</html>
