@@ -20,6 +20,7 @@ from _catalog_paths import (
     resolve_catalog_root,
     save_catalog_root,
 )
+from _catalog_receipt import ResolveRequest, build_source_receipt, render_source_receipt
 from _catalog_service import CatalogService
 
 
@@ -92,8 +93,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     remove = repo_commands.add_parser("remove")
     remove.add_argument("query")
-    remove.add_argument("--purge-managed-cache", action="store_true")
+    remove_mode = remove.add_mutually_exclusive_group()
+    remove_mode.add_argument(
+        "--plan",
+        action="store_true",
+        help="Preview the exact removal target without mutating that repository.",
+    )
+    remove_mode.add_argument("--purge-managed-cache", action="store_true")
+    remove.add_argument(
+        "--plan-token",
+        help="Bind execution to the exact state returned by the authorized preview.",
+    )
     remove.add_argument("--yes", action="store_true")
+    remove.add_argument("--json", action="store_true")
 
     package = commands.add_parser("package", help="Resolve package versions to repository source.")
     package_commands = package.add_subparsers(dest="package_command", required=True)
@@ -103,10 +115,19 @@ def build_parser() -> argparse.ArgumentParser:
     nuget.add_argument("--alias", action="append", default=[])
     nuget.add_argument("--force", action="store_true")
 
-    resolve = commands.add_parser("resolve", help="Resolve a query to a verified source path.")
+    resolve = commands.add_parser(
+        "resolve",
+        help="Resolve source locally or render a share-conscious evidence receipt.",
+    )
     resolve.add_argument("query")
     resolve.add_argument("--ref")
-    resolve.add_argument("--json", action="store_true")
+    resolve_format = resolve.add_mutually_exclusive_group()
+    resolve_format.add_argument("--json", action="store_true")
+    resolve_format.add_argument(
+        "--receipt",
+        action="store_true",
+        help="Render deterministic Markdown without local paths or remote URLs.",
+    )
 
     verify = commands.add_parser("verify", help="Reconcile one or all persisted source artifacts.")
     verify.add_argument("query", nargs="?")
@@ -136,8 +157,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         selected_root = getattr(args, "init_catalog_root", None) or args.catalog_root
         root = resolve_catalog_root(selected_root)
-        service = CatalogService(root)
+        removal_preview = (
+            args.command == "repo"
+            and args.repo_command == "remove"
+            and args.plan
+        )
+        service = CatalogService(
+            root, run_startup_maintenance=not removal_preview
+        )
         result, label = _dispatch(service, args)
+        if args.command == "resolve" and args.receipt:
+            receipt = build_source_receipt(
+                result,
+                ResolveRequest(query=args.query, ref=args.ref),
+            )
+            print(render_source_receipt(receipt))
+            return 0
         _render(result, json_output=json_output, label=label)
         return 0
     except CatalogError as exc:
@@ -234,11 +269,18 @@ def _dispatch_repository(service: CatalogService, args: argparse.Namespace) -> t
     if command == "list":
         return service.list_repositories(args.query), "Repositories"
     if command == "remove":
+        if args.plan:
+            if args.yes or args.plan_token:
+                raise ValidationError(
+                    "--plan cannot be combined with --yes or --plan-token."
+                )
+            return service.removal_plan(args.query), "Repository removal plan"
         return (
             service.remove(
                 args.query,
                 purge_managed_cache=args.purge_managed_cache,
                 yes=args.yes,
+                plan_token=args.plan_token,
             ),
             "Repository removal",
         )

@@ -35,7 +35,7 @@ Keep downloaded archives, staging areas, promoted source trees, locks, dashboard
 - Reject absolute archive paths, traversal, symlink escape, excessive members, and excessive extracted size.
 - Verify staged content before atomically promoting it.
 - Preserve the previous verified artifact until a replacement succeeds.
-- Lock by artifact so identical fetches serialize while unrelated fetches can proceed.
+- Lock by repository across acquisition and removal, then by artifact during promotion and recovery. Different repositories can proceed concurrently; refs of the same repository serialize so removal cannot race a newly promoted source.
 - Recover interrupted operations without presenting incomplete staging data as a valid artifact.
 - Reclaim generated staging directories older than 24 hours only after acquiring the
   matching artifact lock; preserve unknown entries and stages owned by active work.

@@ -46,6 +46,22 @@ class ArtifactManager:
     def __init__(self, root: Path) -> None:
         self.root = root.expanduser().resolve(strict=False)
 
+    @contextlib.contextmanager
+    def repository_guard(
+        self,
+        repository_id: str,
+        *,
+        on_wait: Callable[[], None] | None = None,
+        on_acquired: Callable[[], None] | None = None,
+    ) -> Iterator[None]:
+        """Serialize repository acquisition and removal across agents and processes."""
+        with artifact_lock(
+            self._repository_lock_path(repository_id),
+            on_wait=on_wait,
+            on_acquired=on_acquired,
+        ):
+            yield
+
     def acquire_github(
         self,
         *,
@@ -418,6 +434,10 @@ class ArtifactManager:
         if target.exists() or is_link_or_reparse(target):
             guarded_remove(self.root / "repos", target)
 
+    def repository_cache_path(self, repository_id: str) -> Path:
+        """Return the validated managed directory targeted by a repository purge."""
+        return self._repository_root(repository_id)
+
     @staticmethod
     def _validate_trusted_artifact(
         current: dict[str, Any], trusted: dict[str, Any] | None
@@ -576,6 +596,10 @@ class ArtifactManager:
         _validate_identifier(repository_id, "repository")
         _validate_identifier(identity, "artifact")
         return self.root / "locks" / f"{repository_id}--{identity}.lock"
+
+    def _repository_lock_path(self, repository_id: str) -> Path:
+        _validate_identifier(repository_id, "repository")
+        return self.root / "locks" / f"{repository_id}--repository.lock"
 
 
 def safe_extract_tar(archive_path: Path, destination: Path) -> None:

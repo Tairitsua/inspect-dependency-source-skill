@@ -6,6 +6,7 @@ Use this reference when consuming `resolve --json`, authoring an enriched source
 
 - [`resolve --json` success](#resolve---json-success)
 - [Repository and source provenance](#repository-and-source-provenance)
+- [Removal-plan contract](#removal-plan-contract)
 - [CLI error envelope](#cli-error-envelope)
 - [Enriched manifest](#enriched-manifest)
 - [Operation and event API](#operation-and-event-api)
@@ -26,7 +27,7 @@ A successful command exits with `0` and writes one JSON object to stdout:
 ```json
 {
   "status": "ok",
-  "source_path": "/home/user/.local/share/inspect-dependency-source/repos/.../source",
+  "source_path": "/absolute/catalog/repos/.../source",
   "verification_state": "verified",
   "resolution_kind": "exact_commit",
   "repository": {
@@ -42,8 +43,8 @@ A successful command exits with `0` and writes one JSON object to stdout:
     "kind": "github_archive",
     "ref": "2c6bff7a09f1",
     "detected_version": "9.0.0",
-    "expected_commit": "2c6bff7a09f1",
-    "actual_commit": "2c6bff7a09f1",
+    "expected_commit": "0123456789abcdef0123456789abcdef01234567",
+    "actual_commit": "0123456789abcdef0123456789abcdef01234567",
     "verification_state": "verified",
     "resolution_kind": "exact_commit",
     "verified_at": "2026-07-13T05:00:00+00:00"
@@ -55,7 +56,7 @@ A successful command exits with `0` and writes one JSON object to stdout:
     "requested_ref": "2c6bff7a09f1",
     "resolved_ref": "2c6bff7a09f1",
     "resolution_kind": "exact_commit",
-    "expected_commit": "2c6bff7a09f1"
+    "expected_commit": "0123456789abcdef0123456789abcdef01234567"
   }
 }
 ```
@@ -123,6 +124,60 @@ Interpret provenance conservatively:
 | `expected_commit` | string or null | Commit declared by the package when available. |
 
 The package object may be `null` for repository- or local-source resolution. When it is present, compare its expected commit with the artifact's actual commit before reporting exact package evidence.
+
+## Removal-plan contract
+
+Preview repository removal before requesting authorization:
+
+```bash
+python3 scripts/inspect_dependency_source.py \
+  repo remove short-name --plan --json
+```
+
+The command does not alter the target repository. It resolves one repository or fails with `not_found` or `ambiguous`, then returns:
+
+```json
+{
+  "status": "ok",
+  "operation": "repository_removal_plan",
+  "plan_token": "sha256:authorization-bound-snapshot",
+  "repository": {
+    "id": "repo--example",
+    "canonical_name": "owner/repository",
+    "display_name": "repository",
+    "provider": "github"
+  },
+  "metadata_removal": {
+    "aliases": 1,
+    "artifacts": 2,
+    "local_source_registrations": 1,
+    "package_bindings": 1,
+    "tags": 3,
+    "deletion_set_digest": "sha256:stable-metadata-deletion-set",
+    "managed_cache_preserved": true
+  },
+  "purge": {
+    "requires_explicit_authorization": true,
+    "required_flags": ["--purge-managed-cache", "--yes"],
+    "managed_cache_path": "/absolute/catalog/path/repos/repo--example",
+    "managed_cache_exists": true,
+    "managed_artifacts": [],
+    "preserved_local_sources": [
+      {
+        "path": "/absolute/user-owned/source",
+        "exists": true,
+        "path_classified": true,
+        "reasons": ["registered_local_source"]
+      }
+    ],
+    "local_sources_excluded": true,
+    "safe_to_purge": true,
+    "blocking_reasons": []
+  }
+}
+```
+
+Treat every path and repository identifier in this payload as local, potentially sensitive evidence. `managed_artifacts` lists catalog-owned artifacts expected under `managed_cache_path`. `preserved_local_sources` deduplicates registered local trees and external artifacts that purge must not delete. Continue only when every preserved path has `path_classified: true` and both `local_sources_excluded` and `safe_to_purge` are `true`; then show the plan and obtain explicit authorization naming the canonical repository and purge effect. Execute only against the exact returned `repository.id` and `plan_token`, never the original fuzzy query. `deletion_set_digest` fingerprints stable repository, alias, artifact, local-source, package-binding, and tag identities without printing all of them; it excludes volatile timestamps, metrics, and generations. The plan token binds that digest plus the user-visible managed targets, preserved paths, and purge safety decision. A deletion-set or visible plan change rejects execution and requires a new preview plus new authorization; volatile dashboard bookkeeping that leaves both unchanged does not. The removal result adds `exists_after`; require it to be `true` wherever the preview's `exists` was `true`. The plan itself never authorizes `--yes`.
 
 ## CLI error envelope
 

@@ -1,0 +1,108 @@
+name: Release readiness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-readiness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  tests:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.14"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Markdown security-test renderer
+        run: python -m pip install --disable-pip-version-check Markdown==3.10.2
+      - name: Run focused Source Receipt contract
+        run: python tests/test_source_receipt.py -v
+      - name: Run destructive-removal safety contract
+        run: python tests/test_removal_safety.py -v
+      - name: Run full unit and integration suite
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+  skill-package:
+    name: Skill package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Validate the complete release surface
+        run: python scripts/validate_release.py
+      - name: Validate Agent Skill structure
+        run: |
+          python -m pip install --disable-pip-version-check skills-ref==0.1.1
+          agentskills validate "$GITHUB_WORKSPACE"
+      - name: Install the candidate as Codex would
+        run: |
+          install_root="$RUNNER_TEMP/skill-install"
+          mkdir -p "$install_root"
+          cd "$install_root"
+          npx --yes skills@1.5.19 add "$GITHUB_WORKSPACE" --agent codex --yes --copy
+          installed_skill="$install_root/.agents/skills/inspect-dependency-source"
+          agentskills validate "$installed_skill"
+          python "$installed_skill/scripts/inspect_dependency_source.py" resolve --help
+          test -f "$installed_skill/examples/newtonsoft-json-13.0.3/source-receipt.md"
+
+  browser:
+    name: Dashboard browser validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+      - name: Install showcase encoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg
+      - name: Install Playwright and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check -r showcase/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Exercise the real localhost dashboard
+        run: python tests/browser_validation.py
+      - name: Reproduce and validate the public demo
+        run: |
+          python showcase/record_dashboard.py \
+            --output "$RUNNER_TEMP/dashboard-demo.gif" \
+            --screenshot-output "$RUNNER_TEMP/dashboard-overview.png"

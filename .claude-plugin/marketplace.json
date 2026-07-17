@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "inspect-dependency-source",
+  "description": "Verified dependency-source inspection and provenance receipts for exact package versions and Git refs.",
+  "owner": {
+    "name": "Tairitsua"
+  },
+  "plugins": [
+    {
+      "name": "inspect-dependency-source",
+      "source": "./",
+      "strict": false,
+      "description": "Resolve dependencies to verified reusable source trees and generate privacy-conscious Source Receipts.",
+      "author": {
+        "name": "Tairitsua"
+      },
+      "homepage": "https://github.com/Tairitsua/inspect-dependency-source-skill",
+      "repository": "https://github.com/Tairitsua/inspect-dependency-source-skill",
+      "license": "MIT",
+      "keywords": [
+        "dependency-source",
+        "source-provenance",
+        "nuget",
+        "git",
+        "debugging"
+      ],
+      "category": "development",
+      "tags": [
+        "dependency-source",
+        "source-receipt",
+        "exact-version",
+        "nuget"
+      ],
+      "skills": [
+        "./"
+      ]
+    }
+  ]
+}
