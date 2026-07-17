@@ -63,16 +63,22 @@ jobs:
           package-manager-cache: false
       - name: Validate the complete release surface
         run: python scripts/validate_release.py
-      - name: Validate Agent Skill structure
+      - name: Stage and validate the canonical Skill package
         run: |
           python -m pip install --disable-pip-version-check skills-ref==0.1.1
-          agentskills validate "$GITHUB_WORKSPACE"
+          candidate="$RUNNER_TEMP/inspect-dependency-source"
+          archive="$RUNNER_TEMP/inspect-dependency-source.tar"
+          mkdir "$candidate"
+          git archive --format=tar --output="$archive" HEAD
+          tar -xf "$archive" -C "$candidate"
+          agentskills validate "$candidate"
       - name: Install the candidate as Codex would
         run: |
+          candidate="$RUNNER_TEMP/inspect-dependency-source"
           install_root="$RUNNER_TEMP/skill-install"
           mkdir -p "$install_root"
           cd "$install_root"
-          npx --yes skills@1.5.19 add "$GITHUB_WORKSPACE" --agent codex --yes --copy
+          npx --yes skills@1.5.19 add "$candidate" --agent codex --yes --copy
           installed_skill="$install_root/.agents/skills/inspect-dependency-source"
           agentskills validate "$installed_skill"
           python "$installed_skill/scripts/inspect_dependency_source.py" resolve --help

@@ -25,6 +25,7 @@ if str(SCRIPTS) not in sys.path:
 import _catalog_dashboard as dashboard_module  # noqa: E402
 from _catalog_dashboard import (  # noqa: E402
     DashboardError,
+    DashboardReconciler,
     MAX_DASHBOARD_LOG_FILE_BYTES,
     MAX_DASHBOARD_LOG_LINE_CHARACTERS,
     MAX_DASHBOARD_LOG_READ_BYTES,
@@ -634,21 +635,14 @@ class DashboardReconciliationTests(unittest.TestCase):
                 raise RuntimeError(f"failure-{call_count} token=must-not-leak " + "x" * 5000)
 
         provider = VaryingFailureProvider()
+        reconciler = DashboardReconciler(provider)
         captured = io.StringIO()
         with mock.patch.object(sys, "stderr", captured):
-            with running_server(
-                provider,
-                reconciliation_initial_delay=0,
-                reconciliation_interval=0.001,
-            ):
-                self.assertTrue(
-                    wait_until(
-                        lambda: provider.count() >= MAX_RECONCILIATION_DIAGNOSTIC_LINES + 8,
-                        timeout=3,
-                    )
-                )
+            for _ in range(MAX_RECONCILIATION_DIAGNOSTIC_LINES + 8):
+                reconciler._reconcile_once()
 
         lines = captured.getvalue().splitlines()
+        self.assertEqual(MAX_RECONCILIATION_DIAGNOSTIC_LINES + 8, provider.count())
         self.assertEqual(MAX_RECONCILIATION_DIAGNOSTIC_LINES, len(lines))
         self.assertTrue(all(len(line) <= MAX_DASHBOARD_LOG_LINE_CHARACTERS for line in lines))
         self.assertNotIn("must-not-leak", captured.getvalue())

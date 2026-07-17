@@ -1710,6 +1710,30 @@ class ArtifactSafetyTests(TemporaryDirectoryTestCase):
 
 
 class CredentialSafetyTests(TemporaryDirectoryTestCase):
+    def test_diagnostic_redaction_is_bounded_for_long_non_url_text(self) -> None:
+        program = "\n".join(
+            (
+                "import sys",
+                f"sys.path.insert(0, {str(SCRIPTS_ROOT)!r})",
+                "from _catalog_paths import redact_text",
+                "value = 'failure token=must-not-leak ' + 'x' * 5000",
+                "for _ in range(100):",
+                "    redact_text(value)",
+            )
+        )
+        try:
+            subprocess.run(
+                [sys.executable, "-c", program],
+                check=True,
+                text=True,
+                encoding="utf-8",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=3,
+            )
+        except subprocess.TimeoutExpired:
+            self.fail("Diagnostic redaction exceeded its bounded runtime budget")
+
     def test_remote_and_diagnostic_credentials_are_redacted_before_persistence(self) -> None:
         raw_remote = "https://user:password@example.invalid/org/repo.git?token=secret#fragment"
         self.assertEqual(
