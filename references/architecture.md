@@ -26,7 +26,7 @@ Use SQLite in WAL mode for metadata. Keep transactions short so CLI mutations an
 - Cached tags and refresh timestamps.
 - Operations and append-only operation events.
 
-Keep downloaded archives, staging areas, promoted source trees, locks, dashboard process metadata, and cached reconciliation metrics outside the database under the selected catalog root. Treat internal paths and tables as implementation details; integrate through the CLI or read-only HTTP API. Read [schema.md](schema.md) for the stable public JSON, manifest, and operation-event contracts.
+Keep downloaded archives, staging areas, promoted source trees, locks, dashboard process metadata, and cached reconciliation metrics outside the database under the selected catalog root. Treat internal paths and tables as implementation details; integrate through the CLI or read-only HTTP API. Read [schema.md](schema.md) for the stable local JSON, manifest, and operation-event contracts.
 
 ## Artifact integrity
 
@@ -67,7 +67,7 @@ Keep catalog metadata, source trees, dashboard state, and operation history on t
 
 Outbound traffic occurs only for explicit remote work such as registering a GitHub repository, refreshing metadata, downloading Git/GitHub source, or resolving NuGet package metadata. Public Git and GitHub operations must not require `gh`. Use `GH_TOKEN`, `GITHUB_TOKEN`, or authenticated `gh` only when available for private access or higher API limits.
 
-Sanitize credentials in remotes before persistence or display. Redact secrets from errors, operation events, CLI JSON, and dashboard APIs. Binding to localhost limits exposure but does not make source metadata safe to share; users should review catalog contents before screen sharing or publishing logs.
+Sanitize credentials in remotes before persistence or display. Redact secrets from errors, operation events, CLI JSON, and dashboard APIs. Binding to localhost limits exposure but does not make source metadata non-sensitive; keep raw payloads and catalog details out of project files, diagnostic logs, and release artifacts.
 
 ## Compatibility
 

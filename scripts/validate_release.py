@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the complete public release surface without network access."""
+"""Validate the complete release surface without network access."""
 
 from __future__ import annotations
 
@@ -13,8 +13,6 @@ from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MAX_GIF_BYTES = 8 * 1024 * 1024
-REQUIRED_GIF_SIZE = (1120, 630)
 MAX_PNG_BYTES = 3 * 1024 * 1024
 REQUIRED_PNG_SIZE = (1440, 900)
 PRIVATE_PATH_PATTERNS = (
@@ -37,9 +35,7 @@ PRIVATE_PATH_PATTERNS = (
     ("Linux user home", re.compile("/" + r"home/[^/\s\"'`<>]+")),
 )
 SYNTHETIC_PRIVACY_FIXTURE = "release-privacy-fixture"
-SYNTHETIC_PRIVACY_FIXTURE_FILES = frozenset(
-    {"tests/test_release_package.py", "tests/test_source_receipt.py"}
-)
+SYNTHETIC_PRIVACY_FIXTURE_FILES = frozenset({"tests/test_release_package.py"})
 TOKEN_PATTERNS = (
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
     re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
@@ -104,15 +100,6 @@ def _local_link_failures(root: Path, documents: tuple[str, ...]) -> list[str]:
             if not resolved.exists():
                 failures.append(f"{relative} -> {target}")
     return failures
-
-
-def _gif_metadata(path: Path) -> tuple[tuple[int, int] | None, int]:
-    if not path.is_file():
-        return None, 0
-    header = path.read_bytes()[:10]
-    if len(header) != 10 or header[:6] not in {b"GIF87a", b"GIF89a"}:
-        return None, path.stat().st_size
-    return struct.unpack("<HH", header[6:10]), path.stat().st_size
 
 
 def _png_metadata(path: Path) -> tuple[tuple[int, int] | None, int]:
@@ -195,37 +182,62 @@ def validate_repository(root: Path = ROOT) -> ValidationResult:
         "agents/openai.yaml",
         ".claude-plugin/marketplace.json",
         ".github/workflows/release-readiness.yml",
-        "docs/images/dashboard-demo.gif",
         "docs/images/dashboard-overview.png",
         "docs/release-notes/v1.0.0.md",
         "examples/newtonsoft-json-13.0.3/README.md",
-        "examples/newtonsoft-json-13.0.3/source-receipt.md",
-        "showcase/README.md",
-        "showcase/record_dashboard.py",
-        "showcase/requirements.txt",
+        "tests/requirements.txt",
     )
     missing = [relative for relative in required_files if not (root / relative).is_file()]
     result.require(not missing, "required release files", f"missing {missing}")
     if missing:
         return result
+    retired_files = (
+        "scripts/_catalog_" + "receipt.py",
+        "tests/test_source_" + "receipt.py",
+        "examples/newtonsoft-json-13.0.3/source-" + "receipt.md",
+        "docs/images/dashboard-" + "demo.gif",
+        "showcase/README.md",
+        "showcase/record_dashboard.py",
+        "showcase/requirements.txt",
+    )
+    unexpected = [relative for relative in retired_files if (root / relative).exists()]
+    result.require(
+        not unexpected,
+        "retired release files",
+        f"unexpected {unexpected}",
+    )
 
     skill = _read(root, "SKILL.md")
     name, description = _frontmatter(skill)
     result.require(name == "inspect-dependency-source", "Skill name", f"found {name!r}")
     result.require(
         1 <= len(description) <= 1024
-        and "Manage and reuse exact" in description
+        and "exact" in description.casefold()
         and "Do not use" in description,
         "Skill trigger contract",
         "description must contain positive and negative triggers within 1024 characters",
     )
     result.require(
-        "repo remove <query> --plan --json" in skill
-        and "repo remove <repository.id>" in skill
-        and "--plan-token <plan_token>" in skill
-        and "exists_after: true" in skill,
+        all(
+            marker in skill
+            for marker in (
+                "resolve --json",
+                "package fetch-nuget",
+                "source_path",
+                "read-only",
+            )
+        ),
+        "exact-source workflow",
+        "resolve, acquisition, source-path, or read-only guidance is absent",
+    )
+    removal_reference = _read(root, "references/cli.md")
+    result.require(
+        "repo remove <query> --plan --json" in removal_reference
+        and "repo remove <repository.id>" in removal_reference
+        and "--plan-token <plan_token>" in removal_reference
+        and "exists_after: true" in removal_reference,
         "destructive-operation gate",
-        "plan, exact-ID execution, or post-verification instruction is absent",
+        "advanced CLI guidance lacks plan, exact-ID execution, or post-verification",
     )
 
     try:
@@ -254,19 +266,27 @@ def validate_repository(root: Path = ROOT) -> ValidationResult:
         "npx skills add Tairitsua/inspect-dependency-source-skill --global",
         "claude plugin marketplace add Tairitsua/inspect-dependency-source-skill",
         "https://skills.sh/b/tairitsua/inspect-dependency-source-skill",
-        "docs/images/dashboard-demo.gif",
-        "examples/newtonsoft-json-13.0.3/source-receipt.md",
+        "AGENTS.md",
+        "@AGENTS.md",
+        "## Dependency source inspection",
+        "resolve --json",
+        "docs/images/dashboard-overview.png",
+        "examples/newtonsoft-json-13.0.3/README.md",
     )
     result.require(
         all(marker in readme for marker in required_readme_markers),
         "English README release path",
-        "install, badge, receipt, or showcase marker is absent",
+        "global install, project routing, exact-source, example, or dashboard marker is absent",
     )
     result.require(
-        "docs/images/dashboard-demo.gif" in readme_zh
-        and required_readme_markers[0] in readme_zh,
+        required_readme_markers[0] in readme_zh
+        and "AGENTS.md" in readme_zh
+        and "@AGENTS.md" in readme_zh
+        and "source_path" in readme_zh
+        and "resolve --json" in readme_zh
+        and "docs/images/dashboard-overview.png" in readme_zh,
         "Chinese README release path",
-        "install or showcase marker is absent",
+        "global install, project routing, exact-source, or dashboard marker is absent",
     )
 
     workflow = _read(root, ".github/workflows/release-readiness.yml")
@@ -274,13 +294,12 @@ def validate_repository(root: Path = ROOT) -> ValidationResult:
         'python: ["3.11", "3.14"]',
         "persist-credentials: false",
         "python -m unittest discover",
+        "tests/test_catalog_core.py CliContractTests",
         "tests/test_removal_safety.py",
         "agentskills validate",
         "skills@1.5.19",
+        "tests/requirements.txt",
         "tests/browser_validation.py",
-        "showcase/record_dashboard.py",
-        "apt-get install --no-install-recommends -y ffmpeg",
-        "--screenshot-output",
         "scripts/validate_release.py",
     )
     result.require(
@@ -290,13 +309,6 @@ def validate_repository(root: Path = ROOT) -> ValidationResult:
         "matrix, package, browser, credential, or validator gate is absent",
     )
 
-    gif_size, gif_bytes = _gif_metadata(root / "docs/images/dashboard-demo.gif")
-    result.require(
-        gif_size == REQUIRED_GIF_SIZE and 0 < gif_bytes <= MAX_GIF_BYTES,
-        "dashboard showcase artifact",
-        f"found dimensions={gif_size}, bytes={gif_bytes}",
-    )
-
     png_size, png_bytes = _png_metadata(root / "docs/images/dashboard-overview.png")
     result.require(
         png_size == REQUIRED_PNG_SIZE and 0 < png_bytes <= MAX_PNG_BYTES,
@@ -304,28 +316,39 @@ def validate_repository(root: Path = ROOT) -> ValidationResult:
         f"found dimensions={png_size}, bytes={png_bytes}",
     )
 
-    public_documents = tuple(
+    release_documents = tuple(
         path.relative_to(root).as_posix()
         for path in sorted(root.rglob("*.md"))
         if ".git" not in path.relative_to(root).parts
     )
-    broken_links = _local_link_failures(root, public_documents)
+    broken_links = _local_link_failures(root, release_documents)
     result.require(not broken_links, "local documentation links", f"broken {broken_links}")
 
     private_hits, token_hits = _privacy_failures(root, _release_text_files(root))
     result.require(
         not private_hits and not token_hits,
-        "public artifact privacy scan",
+        "release leakage scan",
         f"private paths={private_hits}, token patterns={token_hits}",
     )
 
-    receipt = _read(root, "examples/newtonsoft-json-13.0.3/source-receipt.md")
+    retired_markers = (
+        "Source " + "Receipt",
+        "source-" + "receipt",
+        "--" + "receipt",
+        "share-" + "conscious",
+    )
+    formal_verdict_pattern = re.compile(
+        r"\b(?:" + "|".join(("PRO" + "VEN", "CANDI" + "DATE", "BLOCK" + "ED")) + r")\b"
+    )
+    retired_hits: list[str] = []
+    for path in _release_text_files(root):
+        text = path.read_text(encoding="utf-8")
+        if any(marker in text for marker in retired_markers) or formal_verdict_pattern.search(text):
+            retired_hits.append(path.relative_to(root).as_posix())
     result.require(
-        "PROVEN" in receipt
-        and "0a2e291c0d9c0c7675d445703e51750363a549ef" in receipt
-        and "Source path" not in receipt,
-        "checked-in Source Receipt",
-        "proof state, exact commit, or share-conscious projection is invalid",
+        not retired_hits,
+        "retired evidence surface",
+        f"obsolete terminology remains in {sorted(set(retired_hits))}",
     )
     changelog = _read(root, "CHANGELOG.md")
     notes = _read(root, "docs/release-notes/v1.0.0.md")

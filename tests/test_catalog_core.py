@@ -1820,6 +1820,25 @@ class CliContractTests(TemporaryDirectoryTestCase):
         self.assertTrue(any("repository:" in line for line in lines[1:]))
         self.assertTrue(any("provenance: unresolved (unverified)" in line for line in lines))
 
+    def test_resolve_help_exposes_json_and_rejects_removed_output_format(self) -> None:
+        help_output = io.StringIO()
+        with redirect_stdout(help_output), self.assertRaises(SystemExit) as raised:
+            cli.build_parser().parse_args(["resolve", "--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("--json", help_output.getvalue())
+        removed_option = "--" + "receipt"
+        self.assertNotIn(removed_option, help_output.getvalue())
+
+        error_output = io.StringIO()
+        with redirect_stderr(error_output), self.assertRaises(SystemExit) as rejected:
+            cli.build_parser().parse_args(
+                ["resolve", "cli-widget", removed_option]
+            )
+
+        self.assertEqual(rejected.exception.code, 2)
+        self.assertIn("unrecognized arguments", error_output.getvalue())
+
     def test_dashboard_validation_uses_stable_error_code_and_nested_help(self) -> None:
         code, stdout, stderr = _invoke_cli(
             [

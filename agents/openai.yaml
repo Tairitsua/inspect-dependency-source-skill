@@ -1,4 +1,4 @@
 interface:
   display_name: "Inspect Dependency Source"
-  short_description: "Prove the exact source behind a dependency"
-  default_prompt: "Use $inspect-dependency-source to resolve this dependency to the exact reusable source tree, inspect its implementation, and include a privacy-conscious Source Receipt with the finding."
+  short_description: "Inspect the exact source used by a dependency"
+  default_prompt: "Use $inspect-dependency-source to determine the exact dependency version or ref used by this project, reuse or acquire its managed source tree, inspect source_path read-only, and state the resolved version or ref and commit in the answer."

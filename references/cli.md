@@ -19,7 +19,7 @@ python3 scripts/inspect_dependency_source.py <command>
 
 ## Global options and configuration
 
-Place `--catalog-root <absolute-path>` before the subcommand to override the catalog for one invocation. Use the shared user catalog by default.
+Place `--catalog-root <absolute-path>` before the subcommand to override the catalog for one invocation. Use the reusable user-level catalog by default.
 
 ```bash
 python3 scripts/inspect_dependency_source.py --catalog-root /srv/source-catalog status
@@ -78,9 +78,9 @@ An explicit ref is strict. A missing ref must fail rather than fetch the default
 Remove a catalog record:
 
 ```bash
-python3 scripts/inspect_dependency_source.py repo remove short-name --plan --json
-python3 scripts/inspect_dependency_source.py repo remove repo--exact-id-from-plan --plan-token sha256:token-from-plan
-python3 scripts/inspect_dependency_source.py repo remove repo--exact-id-from-plan --plan-token sha256:token-from-plan --purge-managed-cache --yes
+python3 scripts/inspect_dependency_source.py repo remove <query> --plan --json
+python3 scripts/inspect_dependency_source.py repo remove <repository.id> --plan-token <plan_token>
+python3 scripts/inspect_dependency_source.py repo remove <repository.id> --plan-token <plan_token> --purge-managed-cache --yes
 ```
 
 Omitting `--purge-managed-cache` keeps managed files. Purging requires both explicit flags and must never delete local source trees registered outside the catalog.
@@ -90,12 +90,12 @@ Omitting `--purge-managed-cache` keeps managed files. Purging requires both expl
 Agents must preview and pause before either removal form:
 
 ```bash
-python3 scripts/inspect_dependency_source.py repo remove short-name --plan --json
+python3 scripts/inspect_dependency_source.py repo remove <query> --plan --json
 ```
 
 Present `repository.id`, `repository.canonical_name`, `metadata_removal.deletion_set_digest`, `purge.managed_cache_path`, all `purge.managed_artifacts`, and every `purge.preserved_local_sources` entry. Continue only when every preserved path has `path_classified: true` and both `purge.local_sources_excluded` and `purge.safe_to_purge` are `true`. Explain whether the proposed action removes metadata only or also purges the listed catalog-managed path; every listed local source must remain untouched. Retain the returned `plan_token` for that authorized execution only.
 
-Ask for explicit authorization that names the canonical repository and the purge effect. Execute only against the exact `repository.id` and `plan_token` returned by that preview, never the original fuzzy query. If repository state changes, execution rejects the stale token; preview and ask again instead of retrying automatically. A general cleanup request is not authorization, and `--yes` must never be added merely to avoid interaction. Stop if the target is ambiguous, an artifact lacks its `external` classification, or a managed path cannot be proven to live under the selected catalog root. After removal, require `exists_after: true` for every preserved path whose preview had `exists: true`. The preview JSON contains local paths and is not share-safe.
+Ask for explicit authorization that names the canonical repository and the purge effect. Execute only against the exact `repository.id` and `plan_token` returned by that preview, never the original fuzzy query. If repository state changes, execution rejects the stale token; preview and ask again instead of retrying automatically. A general cleanup request is not authorization, and `--yes` must never be added merely to avoid interaction. Stop if the target is ambiguous, an artifact lacks its `external` classification, or a managed path cannot be proven to live under the selected catalog root. After removal, require `exists_after: true` for every preserved path whose preview had `exists: true`. The preview JSON contains sensitive local paths and must remain local.
 
 ## Package commands
 
@@ -113,7 +113,6 @@ Prefer a repository commit recorded in the package metadata over tag matching. W
 ```bash
 python3 scripts/inspect_dependency_source.py resolve short-name
 python3 scripts/inspect_dependency_source.py resolve Package.Id --ref 1.2.3 --json
-python3 scripts/inspect_dependency_source.py resolve Package.Id --ref 1.2.3 --receipt
 python3 scripts/inspect_dependency_source.py verify short-name --json
 python3 scripts/inspect_dependency_source.py verify --all --json
 python3 scripts/inspect_dependency_source.py status
@@ -121,8 +120,6 @@ python3 scripts/inspect_dependency_source.py status --json
 ```
 
 Use `resolve --json` in other skills and automation. It remains the stable machine contract and includes the validated local source path.
-
-Use `resolve --receipt` when a finding needs portable evidence. Package receipts require `--ref <exact-version>`; omitting the version or receiving a different binding renders `BLOCKED`. `PROVEN` also requires matching full 40- or 64-hex commit identities. Receipts include the request, repository, selected ref, expected and observed commits, provenance, integrity, and verification time. They intentionally omit absolute paths, file-remotes, remote URLs, aliases, catalog IDs, and path-derived identity suffixes. `--json` and `--receipt` are mutually exclusive.
 
 ## Dashboard commands
 
@@ -137,7 +134,7 @@ The dashboard binds to `127.0.0.1`. Starting it must reuse a healthy user-level 
 
 ## Stable resolution contract
 
-Treat `resolve --json` as the public machine interface. A success exposes `source_path`, `verification_state`, and `resolution_kind` at the top level, with nested repository, artifact, and optional package provenance. Check `status` and the process exit code before dereferencing fields.
+Treat `resolve --json` as the stable local machine interface. A success exposes `source_path`, `verification_state`, and `resolution_kind` at the top level, with nested repository, artifact, and optional package provenance. Check `status` and the process exit code before dereferencing fields.
 
 Read [schema.md](schema.md) for the complete success schema, stable error envelope and codes, manifest format, operation/event projections, and versioning rules. Do not couple consumers to SQLite tables or internal directory names.
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "inspect-dependency-source",
-  "description": "Verified dependency-source inspection and provenance receipts for exact package versions and Git refs.",
+  "description": "Exact dependency-source retrieval, verification, and local catalog observability.",
   "owner": {
     "name": "Tairitsua"
   },
@@ -10,7 +10,7 @@
       "name": "inspect-dependency-source",
       "source": "./",
       "strict": false,
-      "description": "Resolve dependencies to verified reusable source trees and generate privacy-conscious Source Receipts.",
+      "description": "Resolve exact dependency versions and Git refs to verified, reusable source trees.",
       "author": {
         "name": "Tairitsua"
       },
@@ -27,9 +27,9 @@
       "category": "development",
       "tags": [
         "dependency-source",
-        "source-receipt",
         "exact-version",
-        "nuget"
+        "nuget",
+        "local-catalog"
       ],
       "skills": [
         "./"

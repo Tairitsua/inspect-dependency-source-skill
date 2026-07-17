@@ -20,7 +20,6 @@ from _catalog_paths import (
     resolve_catalog_root,
     save_catalog_root,
 )
-from _catalog_receipt import ResolveRequest, build_source_receipt, render_source_receipt
 from _catalog_service import CatalogService
 
 
@@ -117,17 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     resolve = commands.add_parser(
         "resolve",
-        help="Resolve source locally or render a share-conscious evidence receipt.",
+        help="Resolve a registered source tree for local inspection.",
     )
     resolve.add_argument("query")
     resolve.add_argument("--ref")
-    resolve_format = resolve.add_mutually_exclusive_group()
-    resolve_format.add_argument("--json", action="store_true")
-    resolve_format.add_argument(
-        "--receipt",
-        action="store_true",
-        help="Render deterministic Markdown without local paths or remote URLs.",
-    )
+    resolve.add_argument("--json", action="store_true")
 
     verify = commands.add_parser("verify", help="Reconcile one or all persisted source artifacts.")
     verify.add_argument("query", nargs="?")
@@ -166,13 +159,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             root, run_startup_maintenance=not removal_preview
         )
         result, label = _dispatch(service, args)
-        if args.command == "resolve" and args.receipt:
-            receipt = build_source_receipt(
-                result,
-                ResolveRequest(query=args.query, ref=args.ref),
-            )
-            print(render_source_receipt(receipt))
-            return 0
         _render(result, json_output=json_output, label=label)
         return 0
     except CatalogError as exc:

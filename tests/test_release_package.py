@@ -10,12 +10,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-SHOWCASE = ROOT / "showcase"
-for module_root in (SCRIPTS, SHOWCASE):
-    if str(module_root) not in sys.path:
-        sys.path.insert(0, str(module_root))
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
-from record_dashboard import _assert_share_safe  # noqa: E402
 from validate_release import (  # noqa: E402
     _privacy_failures,
     _release_text_files,
@@ -24,7 +21,7 @@ from validate_release import (  # noqa: E402
 
 
 class ReleasePackageTests(unittest.TestCase):
-    def test_public_release_surface_is_complete(self) -> None:
+    def test_release_surface_is_complete(self) -> None:
         result = validate_repository(ROOT)
         self.assertEqual(result.failures, [], "\n".join(result.failures))
 
@@ -44,10 +41,6 @@ class ReleasePackageTests(unittest.TestCase):
 
         self.assertEqual(token_hits, [])
         self.assertTrue(any("slash-style Windows user home" in hit for hit in private_hits))
-
-    def test_showcase_rejects_slash_style_windows_home(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "private/sensitive markers"):
-            _assert_share_safe("file:///C:/Users/example/private/source")  # release-privacy-fixture
 
     def test_terminal_home_paths_are_rejected_even_in_shipped_tests(self) -> None:
         fixtures = (

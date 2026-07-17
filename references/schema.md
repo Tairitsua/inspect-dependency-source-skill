@@ -1,6 +1,6 @@
-# Public data contract
+# Stable local data contract
 
-Use this reference when consuming `resolve --json`, authoring an enriched source manifest, or reading dashboard operation APIs. This is the public v1 contract; it does not describe or stabilize SQLite tables, managed paths, or other storage internals.
+Use this reference when consuming `resolve --json`, authoring an enriched source manifest, or reading dashboard operation APIs. This is the stable local v1 contract; it does not describe or stabilize SQLite tables, managed paths, or other storage internals.
 
 ## Contents
 
@@ -95,7 +95,7 @@ Do not infer exactness from `status: "ok"`. It means that a usable source tree w
 | `id` | string | Opaque source-artifact identity. |
 | `kind` | string | `github_archive`, `git_clone`, or `local`. |
 | `ref` | string | Exact ref recorded for this artifact. Local refs include a collision-safe local suffix. |
-| `detected_version` | string or null | Version detected from source metadata; it is descriptive, not provenance proof. |
+| `detected_version` | string or null | Version detected from source metadata; it is descriptive and does not establish an exact mapping. |
 | `expected_commit` | string or null | Commit required by package metadata or ref resolution. |
 | `actual_commit` | string or null | Commit observed from the acquired or local source. |
 | `verification_state` | string | `verified`, `unverified`, or `failed`; success responses exclude `failed`. |
@@ -106,8 +106,8 @@ Interpret provenance conservatively:
 
 - `exact_commit`: the selected source matches a specific commit established by package metadata or provider resolution.
 - `exact_tag`: the requested ref matched an exact remote tag; retain the resolved commit when supplied.
-- `heuristic_tag`: a version-like tag was selected heuristically. Treat it as a lead, not proof of package contents.
-- `unresolved`: the catalog has usable source but cannot prove an exact package/ref relationship.
+- `heuristic_tag`: a version-like tag was selected heuristically. Treat it as a lead, not an exact package-to-source mapping.
+- `unresolved`: the catalog has usable source but cannot establish an exact package/ref relationship.
 
 `verified` means the catalog's integrity and path checks passed for the current artifact. It does not assert that upstream code is trustworthy or that a heuristic tag represents the requested package.
 
@@ -123,7 +123,7 @@ Interpret provenance conservatively:
 | `resolution_kind` | string | Package binding provenance using the same four values as artifacts. |
 | `expected_commit` | string or null | Commit declared by the package when available. |
 
-The package object may be `null` for repository- or local-source resolution. When it is present, compare its expected commit with the artifact's actual commit before reporting exact package evidence.
+The package object may be `null` for repository- or local-source resolution. When it is present, compare its expected commit with the artifact's actual commit before claiming an exact package-to-source mapping.
 
 ## Removal-plan contract
 
@@ -177,7 +177,7 @@ The command does not alter the target repository. It resolves one repository or 
 }
 ```
 
-Treat every path and repository identifier in this payload as local, potentially sensitive evidence. `managed_artifacts` lists catalog-owned artifacts expected under `managed_cache_path`. `preserved_local_sources` deduplicates registered local trees and external artifacts that purge must not delete. Continue only when every preserved path has `path_classified: true` and both `local_sources_excluded` and `safe_to_purge` are `true`; then show the plan and obtain explicit authorization naming the canonical repository and purge effect. Execute only against the exact returned `repository.id` and `plan_token`, never the original fuzzy query. `deletion_set_digest` fingerprints stable repository, alias, artifact, local-source, package-binding, and tag identities without printing all of them; it excludes volatile timestamps, metrics, and generations. The plan token binds that digest plus the user-visible managed targets, preserved paths, and purge safety decision. A deletion-set or visible plan change rejects execution and requires a new preview plus new authorization; volatile dashboard bookkeeping that leaves both unchanged does not. The removal result adds `exists_after`; require it to be `true` wherever the preview's `exists` was `true`. The plan itself never authorizes `--yes`.
+Treat every path and repository identifier in this payload as local, potentially sensitive data. `managed_artifacts` lists catalog-owned artifacts expected under `managed_cache_path`. `preserved_local_sources` deduplicates registered local trees and external artifacts that purge must not delete. Continue only when every preserved path has `path_classified: true` and both `local_sources_excluded` and `safe_to_purge` are `true`; then show the plan and obtain explicit authorization naming the canonical repository and purge effect. Execute only against the exact returned `repository.id` and `plan_token`, never the original fuzzy query. `deletion_set_digest` fingerprints stable repository, alias, artifact, local-source, package-binding, and tag identities without printing all of them; it excludes volatile timestamps, metrics, and generations. The plan token binds that digest plus the user-visible managed targets, preserved paths, and purge safety decision. A deletion-set or visible plan change rejects execution and requires a new preview plus new authorization; volatile dashboard bookkeeping that leaves both unchanged does not. The removal result adds `exists_after`; require it to be `true` wherever the preview's `exists` was `true`. The plan itself never authorizes `--yes`.
 
 ## CLI error envelope
 
@@ -318,7 +318,7 @@ HTTP API errors use `{"error":{"code":"...","message":"..."}}` with an appropria
 
 ## Versioning rules
 
-- Treat this document as public contract v1 and `/api/v1/*` as HTTP API v1.
+- Treat this document as stable local contract v1 and `/api/v1/*` as local HTTP API v1.
 - Pin integrations to the tool's major version. `resolve --json` has no separate version field; use `status --json` or `/api/v1/health` when compatibility must be checked explicitly.
 - Accept additive object fields and nullable optional values in compatible releases. Ignore unknown fields and handle unknown enum values conservatively.
 - Require a new major release or API path for field removal, renaming, type changes, or semantic changes to existing provenance values.
@@ -328,8 +328,8 @@ HTTP API errors use `{"error":{"code":"...","message":"..."}}` with an appropria
 
 ## Privacy rules
 
-- `source_path`, manifest paths, repository aliases, package versions, and operation history can reveal local or proprietary context. Do not publish raw payloads by default.
+- `source_path`, manifest paths, repository aliases, package versions, and operation history can reveal local or proprietary context. Keep raw payloads out of project files, logs, and release artifacts by default.
 - `remote_url` is sanitized, and known credential material is redacted from messages and API payloads. Redaction is defense in depth, not permission to place secrets in inputs.
-- Keep manifests and operation messages free of credentials, personal data, private reasoning, and source excerpts that should not be shared.
+- Keep manifests and operation messages free of credentials, personal data, private reasoning, and source excerpts that should remain local.
 - The dashboard has no telemetry, CORS, remote bind, or mutation endpoints. Other local processes may still reach localhost; do not treat the API as a secret store.
 - Do not send contract payloads or cached source to external services unless the user explicitly authorizes it.

@@ -1,6 +1,6 @@
 # Source inspection workflows
 
-Use these procedures to obtain evidence without confusing a likely version with the exact dependency under analysis.
+Use these procedures to inspect the exact dependency under analysis without confusing it with a likely version.
 
 ## Reuse an existing source
 
@@ -8,7 +8,7 @@ Use these procedures to obtain evidence without confusing a likely version with 
 2. Confirm that `source_path` is available and verification is healthy.
 3. Compare the resolved commit or ref with the dependency version in the user's project.
 4. Inspect the returned path without modifying managed files.
-5. Report the ref, commit, and provenance with the finding.
+5. State the ref, commit, and provenance with the finding.
 
 Do not download a second copy when a verified matching artifact already exists.
 
@@ -28,7 +28,7 @@ Use `--default-branch` only for questions explicitly about current upstream beha
 2. Run `package fetch-nuget <package-id> <version>`.
 3. Prefer the repository commit embedded in NuGet metadata when present.
 4. Otherwise, evaluate exact tag forms before accepting a heuristic match.
-5. Treat `heuristic_tag` as a lead, not proof. Compare assembly/package metadata or source contents before drawing a version-specific conclusion.
+5. Treat `heuristic_tag` as a lead, not an exact package-to-source mapping. Compare assembly/package metadata or source contents before drawing a version-specific conclusion.
 6. Resolve the exact package with `resolve <package-id> --ref <version> --json`; never omit `--ref` when the dependency version is known. Retain its package-to-artifact provenance in the final analysis.
 
 ## Register local source
@@ -42,7 +42,7 @@ Use `repo add-local <absolute-path>` for one known source tree. Use `repo scan-l
 
 ## Work offline
 
-Use `resolve`, `verify`, `status`, and the dashboard against cached or local source without GitHub authentication. Avoid refresh or fetch operations unless network access becomes available. Explain when evidence may be stale rather than silently switching to a different source.
+Use `resolve`, `verify`, `status`, and the dashboard against cached or local source without GitHub authentication. Avoid refresh or fetch operations unless network access becomes available. Explain when cached metadata may be stale rather than silently switching to a different source.
 
 ## Handle ambiguity and failure
 
@@ -52,6 +52,6 @@ Use `resolve`, `verify`, `status`, and the dashboard against cached or local sou
 - Inspect operation events for a failed download; do not infer success from the presence of a staging directory.
 - Treat `unresolved` provenance, unavailable source, a missing exact ref, and an integrity failure as explicit blockers to exact source claims.
 
-## Share evidence across agents
+## Reuse managed source across projects and agents
 
-Use the user-level catalog as the shared source of truth. Pass `resolve --json` output or its repository/ref/commit/path fields to another agent instead of asking it to rediscover the dependency. Never pass secrets, raw environment variables, SQLite files, or internal staging paths.
+Use the same user-level catalog from every project. Each agent should resolve the exact dependency version, reuse the matching managed tree, and inspect its returned `source_path` read-only instead of creating a project-local copy. Treat JSON paths and catalog identifiers as local data; never copy secrets, raw environment variables, SQLite files, or internal staging paths into project artifacts.
