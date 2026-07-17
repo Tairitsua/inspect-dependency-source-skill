@@ -78,11 +78,24 @@ An explicit ref is strict. A missing ref must fail rather than fetch the default
 Remove a catalog record:
 
 ```bash
-python3 scripts/inspect_dependency_source.py repo remove short-name
-python3 scripts/inspect_dependency_source.py repo remove short-name --purge-managed-cache --yes
+python3 scripts/inspect_dependency_source.py repo remove short-name --plan --json
+python3 scripts/inspect_dependency_source.py repo remove repo--exact-id-from-plan --plan-token sha256:token-from-plan
+python3 scripts/inspect_dependency_source.py repo remove repo--exact-id-from-plan --plan-token sha256:token-from-plan --purge-managed-cache --yes
 ```
 
 Omitting `--purge-managed-cache` keeps managed files. Purging requires both explicit flags and must never delete local source trees registered outside the catalog.
+
+### Safe removal protocol
+
+Agents must preview and pause before either removal form:
+
+```bash
+python3 scripts/inspect_dependency_source.py repo remove short-name --plan --json
+```
+
+Present `repository.id`, `repository.canonical_name`, `metadata_removal.deletion_set_digest`, `purge.managed_cache_path`, all `purge.managed_artifacts`, and every `purge.preserved_local_sources` entry. Continue only when every preserved path has `path_classified: true` and both `purge.local_sources_excluded` and `purge.safe_to_purge` are `true`. Explain whether the proposed action removes metadata only or also purges the listed catalog-managed path; every listed local source must remain untouched. Retain the returned `plan_token` for that authorized execution only.
+
+Ask for explicit authorization that names the canonical repository and the purge effect. Execute only against the exact `repository.id` and `plan_token` returned by that preview, never the original fuzzy query. If repository state changes, execution rejects the stale token; preview and ask again instead of retrying automatically. A general cleanup request is not authorization, and `--yes` must never be added merely to avoid interaction. Stop if the target is ambiguous, an artifact lacks its `external` classification, or a managed path cannot be proven to live under the selected catalog root. After removal, require `exists_after: true` for every preserved path whose preview had `exists: true`. The preview JSON contains local paths and is not share-safe.
 
 ## Package commands
 
@@ -100,13 +113,16 @@ Prefer a repository commit recorded in the package metadata over tag matching. W
 ```bash
 python3 scripts/inspect_dependency_source.py resolve short-name
 python3 scripts/inspect_dependency_source.py resolve Package.Id --ref 1.2.3 --json
+python3 scripts/inspect_dependency_source.py resolve Package.Id --ref 1.2.3 --receipt
 python3 scripts/inspect_dependency_source.py verify short-name --json
 python3 scripts/inspect_dependency_source.py verify --all --json
 python3 scripts/inspect_dependency_source.py status
 python3 scripts/inspect_dependency_source.py status --json
 ```
 
-Use `resolve --json` in other skills and automation. Use human-readable output only for interactive work.
+Use `resolve --json` in other skills and automation. It remains the stable machine contract and includes the validated local source path.
+
+Use `resolve --receipt` when a finding needs portable evidence. Package receipts require `--ref <exact-version>`; omitting the version or receiving a different binding renders `BLOCKED`. `PROVEN` also requires matching full 40- or 64-hex commit identities. Receipts include the request, repository, selected ref, expected and observed commits, provenance, integrity, and verification time. They intentionally omit absolute paths, file-remotes, remote URLs, aliases, catalog IDs, and path-derived identity suffixes. `--json` and `--receipt` are mutually exclusive.
 
 ## Dashboard commands
 
@@ -130,6 +146,6 @@ Read [schema.md](schema.md) for the complete success schema, stable error envelo
 - Capture stdout as the requested text or JSON payload. Send diagnostics and progress to stderr.
 - Check the process exit code before consuming a result.
 - Redact credentials before logging command arguments or output.
-- Avoid concurrent duplicate fetches for the same artifact. Let the per-artifact operation lock serialize them.
-- Allow unrelated artifacts to download concurrently.
+- Avoid concurrent repository mutation. A repository-scoped guard serializes acquisition and removal, while the inner per-artifact lock protects promotion and recovery.
+- Allow source work for different repositories to proceed concurrently; different refs of the same repository intentionally serialize.
 - Retry only resumable network failures. Do not retry validation, traversal, ambiguity, or missing-ref failures as another ref.

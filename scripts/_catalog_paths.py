@@ -31,6 +31,22 @@ HOME_ENV = "INSPECT_DEPENDENCY_SOURCE_HOME"
 LOCK_TIMEOUT_SECONDS = 30 * 60
 STALE_STAGE_SECONDS = 24 * 60 * 60
 MANAGED_ROOT_ENTRIES = frozenset({"state", "repos", "locks", "staging", "dashboard"})
+URL_USERINFO_PATTERN = re.compile(
+    r"(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*://)[^/@\s]+@",
+    flags=re.IGNORECASE,
+)
+AUTHORIZATION_CREDENTIAL_PATTERN = re.compile(
+    r"\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+",
+    flags=re.IGNORECASE,
+)
+NAMED_SECRET_PATTERN = re.compile(
+    r"(\b(?:access[_-]?token|token|password|passwd|api[_-]?key|secret)\b"
+    r"\s*[:=]\s*)[^\s&;,]+",
+    flags=re.IGNORECASE,
+)
+GITHUB_TOKEN_PATTERN = re.compile(
+    r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"
+)
 
 
 def is_windows_reparse_point(path: Path) -> bool:
@@ -306,18 +322,10 @@ def sanitize_remote(remote: str | None) -> str | None:
 
 def redact_text(value: str) -> str:
     """Remove common URL credentials and known token values from diagnostic text."""
-    redacted = re.sub(r"([a-z][a-z0-9+.-]*://)[^/@\s]+@", r"\1", value, flags=re.IGNORECASE)
-    redacted = re.sub(
-        r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+",
-        r"\1 [REDACTED]",
-        redacted,
-    )
-    redacted = re.sub(
-        r"(?i)(\b(?:access[_-]?token|token|password|passwd|api[_-]?key|secret)\b\s*[:=]\s*)[^\s&;,]+",
-        r"\1[REDACTED]",
-        redacted,
-    )
-    redacted = re.sub(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b", "[REDACTED]", redacted)
+    redacted = URL_USERINFO_PATTERN.sub(r"\1", value)
+    redacted = AUTHORIZATION_CREDENTIAL_PATTERN.sub(r"\1 [REDACTED]", redacted)
+    redacted = NAMED_SECRET_PATTERN.sub(r"\1[REDACTED]", redacted)
+    redacted = GITHUB_TOKEN_PATTERN.sub("[REDACTED]", redacted)
     for name in ("GH_TOKEN", "GITHUB_TOKEN"):
         token = os.environ.get(name)
         if token:

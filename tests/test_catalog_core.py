@@ -528,6 +528,54 @@ class LocalCatalogTests(TemporaryDirectoryTestCase):
         self.root = self.temp / "catalog"
         self.service = CatalogService(self.root)
 
+    def test_github_redirect_locks_the_existing_canonical_repository_id(self) -> None:
+        historical = self.service.store.add_repository(
+            repository_id="repo--historical-renamed",
+            provider="github",
+            canonical_name="new/renamed",
+            display_name="renamed",
+            remote_url="https://github.com/new/renamed.git",
+            origin_kind="github",
+        )
+        metadata = {
+            "full_name": "new/renamed",
+            "display_name": "renamed",
+            "remote_url": "https://github.com/new/renamed.git",
+        }
+        repository_guard = self.service.artifacts.repository_guard
+
+        with (
+            mock.patch("_catalog_service.GitHubClient") as github_client,
+            mock.patch.object(
+                self.service.artifacts,
+                "repository_guard",
+                side_effect=lambda repository_id, **kwargs: repository_guard(
+                    repository_id, **kwargs
+                ),
+            ) as guarded,
+        ):
+            github_client.return_value.repository.return_value = metadata
+            repository = self.service.add_github(
+                "old/name", aliases=("redirected",)
+            )
+            self.assertEqual(guarded.call_args_list[0].args[0], historical["id"])
+            guarded.reset_mock()
+            ensured = self.service._ensure_github_repository(
+                "old/name", aliases=("package-alias",)
+            )
+
+        self.assertEqual(repository["id"], historical["id"])
+        self.assertEqual(ensured["id"], historical["id"])
+        self.assertIn("redirected", repository["aliases"])
+        self.assertIn("package-alias", ensured["aliases"])
+        self.assertEqual(guarded.call_args_list[0].args[0], historical["id"])
+        self.assertTrue(
+            (
+                self.service.artifacts.repository_cache_path(historical["id"])
+                / "manifest.stub.json"
+            ).is_file()
+        )
+
     def test_local_registration_resolution_alias_matching_and_tag_filtering(self) -> None:
         source = _make_source(self.temp, "widget-source", version="2.4.6")
         repository = self.service.add_local(source, aliases=("Widget SDK", "widgets"))
@@ -919,6 +967,69 @@ class LocalCatalogTests(TemporaryDirectoryTestCase):
 
 
 class ExactGitRefTests(TemporaryDirectoryTestCase):
+    def test_acquire_derives_cache_identity_from_guarded_provider_snapshot(self) -> None:
+        service = CatalogService(self.temp / "catalog")
+        stale = service.add_git("https://github.com/example/promoted.git")
+        current = service.store.add_repository(
+            repository_id=stale["id"],
+            provider="github",
+            canonical_name="example/promoted",
+            display_name="promoted",
+            remote_url="https://github.com/example/promoted.git",
+            origin_kind="github",
+        )
+        self.assertEqual(stale["provider"], "git")
+        self.assertEqual(current["provider"], "github")
+
+        resolved = ResolvedRef(
+            "v1.0.0", "v1.0.0", "a" * 40, ResolutionKind.EXACT_TAG
+        )
+        identity = artifact_id(stale["id"], "github_archive", resolved.resolved_ref)
+        source = (
+            service.artifacts.repository_cache_path(stale["id"])
+            / "artifacts"
+            / identity
+            / "source"
+        )
+        source.mkdir(parents=True)
+        (source / "README.md").write_text("promoted source\n", encoding="utf-8")
+        service.store.upsert_artifact(
+            stale["id"],
+            {
+                "id": identity,
+                "kind": "github_archive",
+                "ref": resolved.resolved_ref,
+                "source_path": str(source),
+                "status": ArtifactStatus.READY,
+                "resolution_kind": ResolutionKind.EXACT_TAG,
+                "expected_commit": resolved.commit_sha,
+                "actual_commit": resolved.commit_sha,
+                "verification_state": VerificationState.VERIFIED,
+                "external": False,
+            },
+        )
+        trusted_ids: list[str] = []
+
+        def reuse_guarded_cache(**kwargs):
+            trusted = kwargs["load_trusted"]()
+            self.assertIsNotNone(trusted)
+            trusted_ids.append(trusted["id"])
+            kwargs["persist_validated"](trusted)
+            return trusted
+
+        with mock.patch.object(
+            service.artifacts, "acquire_github", side_effect=reuse_guarded_cache
+        ):
+            artifact = service._acquire(
+                stale,
+                resolved,
+                force=False,
+                nested_operation=False,
+            )
+
+        self.assertEqual(trusted_ids, [identity])
+        self.assertEqual(artifact["id"], identity)
+
     def test_missing_exact_ref_never_substitutes_default_branch(self) -> None:
         remote, expected_commit = _make_bare_git_repository(self.temp)
         service = CatalogService(self.temp / "catalog")
@@ -1599,6 +1710,30 @@ class ArtifactSafetyTests(TemporaryDirectoryTestCase):
 
 
 class CredentialSafetyTests(TemporaryDirectoryTestCase):
+    def test_diagnostic_redaction_is_bounded_for_long_non_url_text(self) -> None:
+        program = "\n".join(
+            (
+                "import sys",
+                f"sys.path.insert(0, {str(SCRIPTS_ROOT)!r})",
+                "from _catalog_paths import redact_text",
+                "value = 'failure token=must-not-leak ' + 'x' * 5000",
+                "for _ in range(100):",
+                "    redact_text(value)",
+            )
+        )
+        try:
+            subprocess.run(
+                [sys.executable, "-c", program],
+                check=True,
+                text=True,
+                encoding="utf-8",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=3,
+            )
+        except subprocess.TimeoutExpired:
+            self.fail("Diagnostic redaction exceeded its bounded runtime budget")
+
     def test_remote_and_diagnostic_credentials_are_redacted_before_persistence(self) -> None:
         raw_remote = "https://user:password@example.invalid/org/repo.git?token=secret#fragment"
         self.assertEqual(

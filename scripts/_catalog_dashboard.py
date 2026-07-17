@@ -287,6 +287,12 @@ def _redact_string(value: str) -> str:
     return redact_text(value)
 
 
+def _truncate_log_line(value: str) -> str:
+    if len(value) > MAX_DASHBOARD_LOG_LINE_CHARACTERS:
+        return f"{value[: MAX_DASHBOARD_LOG_LINE_CHARACTERS - 1]}…"
+    return value
+
+
 def _safe_log_line(value: str) -> str:
     """Redact credentials and render control characters inert on one physical line."""
 
@@ -294,9 +300,7 @@ def _safe_log_line(value: str) -> str:
     safe = LOG_CONTROL_CHARACTER_PATTERN.sub(
         lambda match: f"\\u{ord(match.group(0)):04x}", redacted
     )
-    if len(safe) > MAX_DASHBOARD_LOG_LINE_CHARACTERS:
-        return f"{safe[: MAX_DASHBOARD_LOG_LINE_CHARACTERS - 1]}…"
-    return safe
+    return _truncate_log_line(safe)
 
 
 def sanitize_payload(value: Any, *, key: str | None = None) -> Any:
@@ -1282,9 +1286,10 @@ class DashboardReconciler:
                     self._last_logged_error = safe_error
                     self._diagnostic_log_count += 1
             if should_log:
-                sys.stderr.write(
-                    f"{_safe_log_line(f'Dashboard reconciliation failed: {safe_error}')}\n"
+                message = _truncate_log_line(
+                    f"Dashboard reconciliation failed: {safe_error}"
                 )
+                sys.stderr.write(f"{message}\n")
         finally:
             with self._lock:
                 self._reconciling = False

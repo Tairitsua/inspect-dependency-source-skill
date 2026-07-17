@@ -1,4 +1,4 @@
 interface:
   display_name: "Inspect Dependency Source"
-  short_description: "Ground agents in exact dependency source"
-  default_prompt: "Use $inspect-dependency-source to resolve this dependency to the exact reusable source tree and inspect its implementation."
+  short_description: "Prove the exact source behind a dependency"
+  default_prompt: "Use $inspect-dependency-source to resolve this dependency to the exact reusable source tree, inspect its implementation, and include a privacy-conscious Source Receipt with the finding."

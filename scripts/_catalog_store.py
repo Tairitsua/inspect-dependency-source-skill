@@ -1362,12 +1362,24 @@ class CatalogStore:
             "timestamp": utc_now(),
         }
 
-    def delete_repository(self, repository_id: str) -> None:
+    def delete_repository(
+        self,
+        repository_id: str,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> None:
         """Delete repository metadata; managed files are handled separately and safely."""
-        with self.connect(write=True) as connection:
-            changed = connection.execute("DELETE FROM repositories WHERE id=?", (repository_id,)).rowcount
-            if changed != 1:
-                raise NotFoundError(f"Repository not found: {repository_id}")
+        if connection is not None:
+            changed = connection.execute(
+                "DELETE FROM repositories WHERE id=?", (repository_id,)
+            ).rowcount
+        else:
+            with self.connect(write=True) as owned_connection:
+                changed = owned_connection.execute(
+                    "DELETE FROM repositories WHERE id=?", (repository_id,)
+                ).rowcount
+        if changed != 1:
+            raise NotFoundError(f"Repository not found: {repository_id}")
 
 
 def _merge_origin(current: str, incoming: str) -> str:
