@@ -34,10 +34,8 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python }}
-      - name: Install Markdown security-test renderer
-        run: python -m pip install --disable-pip-version-check Markdown==3.10.2
-      - name: Run focused Source Receipt contract
-        run: python tests/test_source_receipt.py -v
+      - name: Run focused resolve contract
+        run: python tests/test_catalog_core.py CliContractTests -v
       - name: Run destructive-removal safety contract
         run: python tests/test_removal_safety.py -v
       - name: Run full unit and integration suite
@@ -81,8 +79,9 @@ jobs:
           npx --yes skills@1.5.19 add "$candidate" --agent codex --yes --copy
           installed_skill="$install_root/.agents/skills/inspect-dependency-source"
           agentskills validate "$installed_skill"
-          python "$installed_skill/scripts/inspect_dependency_source.py" resolve --help
-          test -f "$installed_skill/examples/newtonsoft-json-13.0.3/source-receipt.md"
+          resolve_help="$(python "$installed_skill/scripts/inspect_dependency_source.py" resolve --help)"
+          printf '%s\n' "$resolve_help" | grep -q -- "--json"
+          test -f "$installed_skill/examples/newtonsoft-json-13.0.3/README.md"
 
   browser:
     name: Dashboard browser validation
@@ -97,18 +96,9 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14"
-      - name: Install showcase encoder
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y ffmpeg
       - name: Install Playwright and Chromium
         run: |
-          python -m pip install --disable-pip-version-check -r showcase/requirements.txt
+          python -m pip install --disable-pip-version-check -r tests/requirements.txt
           python -m playwright install --with-deps chromium
       - name: Exercise the real localhost dashboard
         run: python tests/browser_validation.py
-      - name: Reproduce and validate the public demo
-        run: |
-          python showcase/record_dashboard.py \
-            --output "$RUNNER_TEMP/dashboard-demo.gif" \
-            --screenshot-output "$RUNNER_TEMP/dashboard-overview.png"

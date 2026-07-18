@@ -1,30 +1,36 @@
-# Newtonsoft.Json 13.0.3 Source Receipt
+# Exact NuGet source replay: Newtonsoft.Json 13.0.3
 
-This is a real network-backed replay captured on 2026-07-17. The exact NuGet
+This real network-backed replay was captured on 2026-07-17. The exact NuGet
 package [`Newtonsoft.Json 13.0.3`](https://www.nuget.org/packages/Newtonsoft.Json/13.0.3)
 declared repository commit
 [`0a2e291c0d9c0c7675d445703e51750363a549ef`](https://github.com/JamesNK/Newtonsoft.Json/commit/0a2e291c0d9c0c7675d445703e51750363a549ef),
-and the downloaded source tree verified at the same commit.
+and the acquired source tree verified at that same commit.
 
-The resulting [Source Receipt](source-receipt.md) omits the temporary catalog
-path, remote URL, aliases, and internal IDs. Reproduce the evidence from the
-repository root:
+Run the replay from the repository root:
 
 ```bash
-receipt_demo_catalog="$(mktemp -d /tmp/inspect-dependency-source-receipt.XXXXXX)"
+example_catalog="$(mktemp -d /tmp/inspect-dependency-source-example.XXXXXX)"
 
 python3 scripts/inspect_dependency_source.py \
-  --catalog-root "$receipt_demo_catalog" init --no-dashboard
+  --catalog-root "$example_catalog" init --no-dashboard
 
 python3 scripts/inspect_dependency_source.py \
-  --catalog-root "$receipt_demo_catalog" \
+  --catalog-root "$example_catalog" \
   package fetch-nuget Newtonsoft.Json 13.0.3
 
 python3 scripts/inspect_dependency_source.py \
-  --catalog-root "$receipt_demo_catalog" \
-  resolve Newtonsoft.Json --ref 13.0.3 --receipt
+  --catalog-root "$example_catalog" \
+  resolve Newtonsoft.Json --ref 13.0.3 --json
 ```
 
-The verification timestamp will reflect the replay time. The package,
-repository, expected commit, observed commit, provenance class, and `PROVEN`
-verdict should match the checked-in receipt.
+The final JSON should identify:
+
+- Package `Newtonsoft.Json` at version `13.0.3`.
+- Repository `JamesNK/Newtonsoft.Json`.
+- Expected and observed commit
+  `0a2e291c0d9c0c7675d445703e51750363a549ef`.
+- `exact_commit` resolution and a verified source artifact.
+- A local `source_path` containing the tree the agent should inspect read-only.
+
+The `source_path`, catalog IDs, operation timestamps, and other local runtime
+details vary by machine, so no JSON output is checked into this example.
